@@ -205,34 +205,31 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		s.renderClientLoginPage(w, err.Error(), ipAddr)
 		return
 	}
-	protocol := common.ProtocolHTTP
-	username := r.Form.Get("username")
-	password := r.Form.Get("password")
-	if username == "" || password == "" {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
-			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
-		s.renderClientLoginPage(w, "Invalid credentials", ipAddr)
-		return
-	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
-			dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientLoginPage(w, err.Error(), ipAddr)
-		return
-	}
-
-	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
 		s.renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err), ipAddr)
 		return
 	}
 
-	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol)
-	if err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientLoginPage(w, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
+	var user dataprovider.User
+	username := r.Header.Get("X-Remote-User")
+	if username == "" {
+		s.renderClientLoginPage(w, "Invalid credentials", ipAddr)
 		return
 	}
-	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
+	if u, err := dataprovider.UserExists(username); err == nil {
+		user = u
+	} else {
+		s.renderClientLoginPage(w, fmt.Sprintf("User \"%v\" does not exist", username), ipAddr)
+		return
+	}
+
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, dataprovider.LoginMethodPassword, ipAddr, err)
+		s.renderClientLoginPage(w, err.Error(), ipAddr)
+		return
+	}
+
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
 	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		s.renderClientLoginPage(w, err.Error(), ipAddr)
@@ -240,8 +237,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	}
 
 	defer user.CloseFs() //nolint:errcheck
-	err = user.CheckFsRoot(connectionID)
-	if err != nil {
+	if err := user.CheckFsRoot(connectionID); err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 		s.renderClientLoginPage(w, err.Error(), ipAddr)

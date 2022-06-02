@@ -245,14 +245,17 @@ func (s *webDavServer) getCredentialsAndLoginMethod(r *http.Request) (string, st
 	if s.binding.isMutualTLSEnabled() && r.TLS != nil {
 		if len(r.TLS.PeerCertificates) > 0 {
 			tlsCert = r.TLS.PeerCertificates[0]
-			if ok {
-				loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
-			} else {
-				loginMethod = dataprovider.LoginMethodTLSCertificate
-				username = tlsCert.Subject.CommonName
-				password = ""
+			loginMethod = dataprovider.LoginMethodTLSCertificate
+			var oidUserID = []int{0, 9, 2342, 19200300, 100, 1, 1}
+			for _, n := range tlsCert.Subject.Names {
+				if n.Type.Equal(oidUserID) {
+					if v, ok := n.Value.(string); ok {
+						username = v
+						ok = true
+					}
+				}
 			}
-			ok = true
+			password = ""
 		}
 	}
 	return username, password, loginMethod, tlsCert, ok
