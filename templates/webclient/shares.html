@@ -234,7 +234,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     $('#writeShare').hide();
                     $('#readShare').hide();
                 } else {
-                    var shareURL = '{{.BasePublicSharesURL}}' + "/" + fixedEncodeURIComponent(shareID);
+                    var shareURL = 'https://pub.share.nyantec.com' 
+                            + "/web/client/pubshares/"
+                            + fixedEncodeURIComponent(shareID);
                     if (shareScope == 'Read'){
                         $('#expiredShare').hide();
                         $('#writeShare').hide();
