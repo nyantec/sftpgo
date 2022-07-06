@@ -53,6 +53,7 @@ func (s *Service) initLogger() {
 	if !s.LogVerbose {
 		logLevel = zerolog.InfoLevel
 	}
+	logLevel = zerolog.WarnLevel
 	if !filepath.IsAbs(s.LogFilePath) && util.IsFileInputValid(s.LogFilePath) {
 		s.LogFilePath = filepath.Join(s.ConfigDir, s.LogFilePath)
 	}
