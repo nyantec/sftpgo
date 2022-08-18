@@ -387,6 +387,7 @@ func Init() {
 			SigningPassphrase:  "",
 			TokenValidation:    0,
 			MaxUploadFileSize:  1048576000,
+			
 			Cors: httpd.CorsConfig{
 				Enabled:              false,
 				AllowedOrigins:       []string{},
