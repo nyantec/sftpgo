@@ -636,6 +636,8 @@ type Binding struct {
 	BaseURL string `json:"base_url" mapstructure:"base_url"`
 	// Languages defines the list of enabled translations for the WebAdmin and WebClient UI.
 	Languages []string `json:"languages" mapstructure:"languages"`
+	// Amount of days for created shares to expire per default. Set to 0 for no expiration.
+	ShareExpirationDays int `json:"share_expiration_days" mapstructure:"share_expiration_days"`
 	// Defining an OIDC configuration the web admin and web client UI will use OpenID to authenticate users.
 	OIDC OIDC `json:"oidc" mapstructure:"oidc"`
 	// Security defines security headers to add to HTTP responses and allows to restrict allowed hosts
