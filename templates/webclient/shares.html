@@ -229,7 +229,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             $('#writeShare').hide();
             $('#readShare').hide();
         } else {
-            let shareURL = '{{.BasePublicSharesURL}}' + "/" + encodeURIComponent(shareID);
+            //let shareURL = '{{.BasePublicSharesURL}}' + "/" + encodeURIComponent(shareID);
+		    // XXX(@vsh): this should really be configurable.
+		    let shareURL = 'https://pub.share.nyantec.com/web/client/pubshares/' + encodeURIComponent(shareID);
             if (shareScope == '1') {
                 $('#expiredShare').hide();
                 $('#writeShare').hide();
