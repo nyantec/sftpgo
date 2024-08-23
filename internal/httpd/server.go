@@ -246,22 +246,11 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
+
 	protocol := common.ProtocolHTTP
-	username := strings.TrimSpace(r.Form.Get("username"))
-	password := r.Form.Get("password")
-	if username == "" || password == "" {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
-			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials, r)
-		s.renderClientLoginPage(w, r,
-			util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
-		return
-	}
-	if err := verifyLoginCookieAndCSRFToken(r, s.csrfTokenAuth); err != nil {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
-			dataprovider.LoginMethodPassword, ipAddr, err, r)
-		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
-		return
-	}
+
+	var user dataprovider.User
+	username := r.Header.Get("X-Remote-User")
 
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
@@ -270,14 +259,19 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol)
-	if err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
+	if username == "" {
+		// updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		s.renderClientLoginPage(w, r,
 			util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials))
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
+	if u, err := dataprovider.UserExists(username, ""); err == nil {
+		user = u
+	} else {
+		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nErrorUserTemplate))
+		return
+	}
 	if err := checkHTTPClientUser(&user, r, connectionID, true, false); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err, r)
 		s.renderClientLoginPage(w, r, util.NewI18nError(err, util.I18nError403Message))
@@ -285,7 +279,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	}
 
 	defer user.CloseFs() //nolint:errcheck
-	err = user.CheckFsRoot(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure, r)
